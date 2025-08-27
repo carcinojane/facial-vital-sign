@@ -21,3 +21,6 @@ logs/
 
 # Conda
 envs/
+
+# rPPG Toolbox (external repository)
+rppg_toolbox/
