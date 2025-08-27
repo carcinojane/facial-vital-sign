@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Verify dataset layout",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/verify_layout.py",
+      "console": "integratedTerminal",
+      "env": { "RPPG_DATA_ROOT": "${workspaceFolder}/data" }
+    },
+    {
+      "name": "Run POS (unsupervised) on a video",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/run_unsupervised_pos.py",
+      "args": ["--video", "${workspaceFolder}/sample_video.mp4"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Run Toolbox main.py (custom config)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/run_toolbox_main.py",
+      "args": ["--config", "configs/eval_configs/your_config.yaml"],
+      "console": "integratedTerminal"
+    }
+  ]
+}
