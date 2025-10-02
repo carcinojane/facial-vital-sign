@@ -6,6 +6,11 @@
 
 > **Transform any camera into a comprehensive vital signs monitoring system using facial video analysis**
 
+## 📌 Quick Links
+- **[Dataset Setup Instructions](DATASETS.md)** - Download PURE & UBFC datasets
+- **[Repository Documentation](REPOSITORY_DESCRIPTION.md)** - Full technical details
+- **[Claude.ai Instructions](CLAUDE.md)** - AI development guidelines
+
 A state-of-the-art **remote photoplethysmography (rPPG)** system that extracts multiple physiological parameters from facial video streams without any contact or specialized hardware.
 
 ![Demo](https://via.placeholder.com/800x400?text=Facial+Vital+Signs+Demo)
@@ -120,15 +125,89 @@ export GDRIVE_RPPG="/path/to/your/datasets"
 ```
 
 ### Dataset Integration
-```bash
-# Link Google Drive datasets
-python scripts/make_symlinks.py
 
-# Verify dataset structure
+**⚠️ IMPORTANT: Datasets are NOT included in this repository due to size constraints**
+
+This project uses the following public datasets for evaluation:
+
+#### 📦 Required Datasets
+
+1. **PURE Dataset**
+   - **Kaggle (Recommended)**: [Download from Kaggle](https://www.kaggle.com/datasets/computerscience3/public-requirementspure-dataset)
+   - **Official Source**: [TU Ilmenau PURE Dataset](https://www.tu-ilmenau.de/universitaet/fakultaeten/fakultaet-informatik-und-automatisierung/profil/institute-und-fachgebiete/institut-fuer-technische-informatik-und-ingenieurinformatik/fachgebiet-neuroinformatik-und-kognitive-robotik/data-sets-code/pulse-rate-detection-dataset-pure)
+   - **Size**: ~15 GB
+   - **Description**: 10 subjects with RGB video and ground truth heart rate
+
+2. **UBFC-rPPG Dataset**
+   - **Official Page**: [UBFC-PHYS](https://sites.google.com/view/ybenezeth/ubfc-phys)
+   - **Alternative**: [UBFC-rPPG](https://sites.google.com/view/ybenezeth/ubfcrppg)
+   - **Size**: ~8 GB
+   - **Description**: 42 subjects with varying lighting conditions
+
+#### 📁 Dataset Setup Instructions
+
+After downloading the datasets:
+
+```bash
+# 1. Create data directory structure
+mkdir -p data/PURE
+mkdir -p data/UBFC
+
+# 2. Extract datasets to respective folders
+# PURE: Extract to data/PURE/
+# UBFC: Extract to data/UBFC/
+
+# 3. Verify dataset structure
 python scripts/verify_layout.py
 
+# 4. (Optional) If using Google Drive for dataset storage
+python scripts/make_symlinks.py
+```
+
+#### Expected Directory Structure
+```
+data/
+├── PURE/
+│   ├── 01-01/
+│   │   ├── 01-01.json           # Ground truth
+│   │   └── 01-01/               # Image sequence
+│   ├── 01-02/
+│   └── ...
+└── UBFC/
+    ├── subject1/
+    │   ├── vid.avi              # Video file
+    │   └── ground_truth.txt     # HR ground truth
+    ├── subject2/
+    └── ...
+```
+
+#### 🔗 Alternative: Google Drive Setup
+
+For team collaboration or cloud storage:
+
+```bash
+# Set environment variable for your Google Drive path
+export GDRIVE_RPPG="G:/My Drive/rppg_datasets"  # Windows
+# OR
+export GDRIVE_RPPG="~/Google Drive/rppg_datasets"  # macOS/Linux
+
+# Create symbolic links
+python scripts/make_symlinks.py
+```
+
+#### Evaluate on Datasets
+```bash
+# Evaluate on PURE dataset
+python run_pure_evaluation.py
+
 # Evaluate on UBFC dataset
-python scripts/evaluate_ubfc.py --data_path ./data/UBFC-rPPG
+python run_evaluation.py
+
+# Combined evaluation (both datasets)
+python run_combined_evaluation.py
+
+# Incremental improvement evaluation
+python run_incremental_evaluation.py
 ```
 
 ## 📊 Performance & Validation

@@ -1,26 +1,76 @@
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.py[cod]
+*$py.class
 .venv/
 .conda/
+venv/
+ENV/
+env/
 
 # VS Code
 .vscode/settings.json
+.idea/
 
 # Data and outputs
-data/
+data/PURE/**
+data/UBFC/**
+data/UBFC-rPPG/**
 outputs/
 runs/
 logs/
+
+# Results files (large CSVs and reports)
+*.csv
+*_results_*.csv
+results.txt
+*_evaluation_report*.txt
+*_incremental.csv
+pure_results_*.csv
+ubfc_results_*.csv
+combined_results_*.csv
+
+# Video and image files (datasets)
+*.avi
+*.mp4
+*.mov
+*.mkv
+*.zip
+data/**/*.zip
+
+# Plots and visualizations
+*.png
+*.jpg
+*.jpeg
+plots/
+figures/
+*_plots.png
+
+# Model files
+*.pt
+*.pth
+*.h5
+*.pkl
+checkpoints/
 
 # Conda
 envs/
 
 # rPPG Toolbox (external repository)
 rppg_toolbox/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Keep directory structure
+!data/.gitkeep
+!data/README.md
