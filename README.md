@@ -7,8 +7,16 @@
 > **Transform any camera into a comprehensive vital signs monitoring system using facial video analysis**
 
 ## 📌 Quick Links
-- **[Dataset Setup Instructions](DATASETS.md)** - Download PURE & UBFC datasets
-- **[Repository Documentation](REPOSITORY_DESCRIPTION.md)** - Full technical details
+
+### 🎯 Essential Documentation
+- **[Iteration History](ITERATIONS.md)** - Complete development log (Iterations 0-4)
+- **[Evaluation Results](EVALUATION_RESULTS.md)** - Performance data and analysis
+- **[Dataset Setup](DATASETS.md)** - Download & configure PURE/UBFC datasets
+- **[Memory Optimization](MEMORY_OPTIMIZATION.md)** - Technical fixes and optimizations
+- **[Changelog](CHANGELOG.md)** - Recent changes and updates
+
+### 🔧 Technical Details
+- **[Repository Documentation](REPOSITORY_DESCRIPTION.md)** - Full architecture details
 - **[Claude.ai Instructions](CLAUDE.md)** - AI development guidelines
 
 A state-of-the-art **remote photoplethysmography (rPPG)** system that extracts multiple physiological parameters from facial video streams without any contact or specialized hardware.
@@ -212,27 +220,49 @@ python run_incremental_evaluation.py
 
 ## 📊 Performance & Validation
 
-### Accuracy Metrics
-- **Heart Rate**: ±3 BPM accuracy on standard datasets
-- **Respiratory Rate**: 12-20 BrPM detection range
-- **Real-time Processing**: 30+ FPS with face detection
-- **Signal Quality**: Automatic stability assessment
+### Current Best Performance
+
+**Model**: Iteration 2 (Haar Cascade + Multi-ROI)
+**Dataset**: PURE (24 subjects)
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| **MAE** | **4.51 BPM** | ✅ Competitive |
+| **RMSE** | **6.79 BPM** | ✅ Good |
+| **Correlation** | **0.365** | ⚠️ Moderate |
+| **Within ±10 BPM** | **87.0%** | ✅ Clinically acceptable |
+
+**See [EVALUATION_RESULTS.md](EVALUATION_RESULTS.md) for detailed analysis**
+
+### Key Findings
+
+✅ **What Works**:
+- Multi-ROI averaging (forehead + cheeks) reduces noise
+- Simple methods outperform over-engineered filtering
+- 33% of subjects achieve excellent MAE < 2 BPM
+
+❌ **Limitations**:
+- High subject variability (some fail completely)
+- Requires controlled conditions (frontal face, good lighting)
+- Classical algorithms plateauing around 4-5 BPM MAE
+
+📖 **Full iteration history**: See [ITERATIONS.md](ITERATIONS.md)
 
 ### Supported Datasets
+- **PURE**: 24 subjects, controlled laboratory conditions (primary)
 - **UBFC-rPPG**: 42 subjects, various lighting conditions
-- **PURE**: Multi-subject validation with ground truth
 - **Custom Videos**: Any MP4/AVI face video
 
 ### Testing Suite
 ```bash
-# Quick component test
-python test_enhanced_ui_simple.py
+# Run latest iteration evaluations
+python run_iteration4_evaluation.py
+python run_iteration4a_evaluation.py  # Illumination only
+python run_iteration4b_evaluation.py  # Temporal only
+python run_iteration4c_evaluation.py  # Motion only
 
-# Comprehensive system test
-python test_rppg_system.py
-
-# UBFC dataset evaluation
-python test_ubfc_system.py
+# Best baseline (Iteration 2)
+python run_iteration2_evaluation.py
 ```
 
 ## 🏗️ Architecture
