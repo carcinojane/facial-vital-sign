@@ -11,43 +11,224 @@ import time
 from collections import deque
 import threading
 
+# ITERATION 3: MediaPipe support
+try:
+    import mediapipe as mp
+    MEDIAPIPE_AVAILABLE = True
+except ImportError:
+    MEDIAPIPE_AVAILABLE = False
+
 class RPPGProcessor:
-    def __init__(self, window_size=300, fps=30):
+    def __init__(self, window_size=300, fps=30, use_multi_roi=True, use_mediapipe=False,
+                 use_illumination_norm=False, use_temporal_filter=False, use_motion_detection=False):
         self.window_size = window_size  # 10 seconds at 30fps
         self.fps = fps
         self.rgb_buffer = deque(maxlen=window_size)
         self.timestamps = deque(maxlen=window_size)
-        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+        # ITERATION 3: MediaPipe or Haar Cascade face detection
+        self.use_mediapipe = use_mediapipe and MEDIAPIPE_AVAILABLE
+        if self.use_mediapipe:
+            self.mp_face = mp.solutions.face_mesh.FaceMesh(
+                static_image_mode=True,
+                max_num_faces=1,
+                refine_landmarks=True,
+                min_detection_confidence=0.5
+            )
+        else:
+            self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+        self.use_multi_roi = use_multi_roi  # ITERATION 2: Multi-ROI improvement
+
+        # ITERATION 4: Signal quality enhancements
+        self.use_illumination_norm = use_illumination_norm
+        self.use_temporal_filter = use_temporal_filter
+        self.use_motion_detection = use_motion_detection
+
+        # For motion detection
+        self.previous_frame = None
+        self.hr_history = deque(maxlen=10)  # For temporal filtering
         
     def extract_face_roi(self, frame):
-        """Extract face ROI using OpenCV Haar Cascade"""
+        """Extract face ROI using MediaPipe or Haar Cascade
+
+        ITERATION 2 Enhancement: Multi-ROI support
+        ITERATION 3 Enhancement: MediaPipe face landmarks for accurate ROI positioning
+        """
+        if self.use_mediapipe:
+            return self._extract_mediapipe_roi(frame)
+        else:
+            return self._extract_haar_roi(frame)
+
+    def _extract_haar_roi(self, frame):
+        """Extract ROI using Haar Cascade (original method)"""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
-        
+
         if len(faces) > 0:
             # Use the largest face
             face = max(faces, key=lambda x: x[2] * x[3])
             x, y, w, h = face
-            
-            # Extract forehead region (upper 40% of face)
-            forehead_y = y + int(h * 0.1)
-            forehead_h = int(h * 0.4)
-            forehead_roi = frame[forehead_y:forehead_y + forehead_h, x:x + w]
-            
-            return forehead_roi, (x, y, w, h)
+
+            if self.use_multi_roi:
+                # ITERATION 2: Multi-ROI extraction
+                # Extract three regions: forehead + left cheek + right cheek
+                rois = []
+
+                # Forehead (upper 30% of face, starting 10% from top)
+                forehead_y = y + int(h * 0.1)
+                forehead_h = int(h * 0.3)
+                forehead_roi = frame[forehead_y:forehead_y + forehead_h, x:x + w]
+                if forehead_roi.size > 0:
+                    rois.append(forehead_roi)
+
+                # Left cheek (40-70% vertical, 0-40% horizontal)
+                cheek_y = y + int(h * 0.4)
+                cheek_h = int(h * 0.3)
+                left_cheek_w = int(w * 0.4)
+                left_cheek = frame[cheek_y:cheek_y + cheek_h, x:x + left_cheek_w]
+                if left_cheek.size > 0:
+                    rois.append(left_cheek)
+
+                # Right cheek (40-70% vertical, 60-100% horizontal)
+                right_cheek_x = x + int(w * 0.6)
+                right_cheek_w = int(w * 0.4)
+                right_cheek = frame[cheek_y:cheek_y + cheek_h, right_cheek_x:right_cheek_x + right_cheek_w]
+                if right_cheek.size > 0:
+                    rois.append(right_cheek)
+
+                return rois, (x, y, w, h)
+            else:
+                # BASELINE: Single forehead ROI
+                forehead_y = y + int(h * 0.1)
+                forehead_h = int(h * 0.4)
+                forehead_roi = frame[forehead_y:forehead_y + forehead_h, x:x + w]
+                return [forehead_roi], (x, y, w, h)
+
         return None, None
-    
-    def extract_rgb_signal(self, roi):
-        """Extract mean RGB values from ROI"""
-        if roi is None or roi.size == 0:
+
+    def _extract_mediapipe_roi(self, frame):
+        """ITERATION 3 (FIXED): Extract ROI using MediaPipe with percentage-based regions
+
+        Uses MediaPipe for accurate face detection, then applies SAME percentage-based
+        ROI extraction as Haar Cascade to ensure consistent comparison.
+        """
+        h, w, _ = frame.shape
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.mp_face.process(rgb)
+
+        if not results.multi_face_landmarks:
+            return None, None
+
+        landmarks = results.multi_face_landmarks[0].landmark
+
+        # Get face bounding box from all landmarks (more accurate than Haar Cascade)
+        all_x = [landmarks[i].x for i in range(len(landmarks))]
+        all_y = [landmarks[i].y for i in range(len(landmarks))]
+
+        face_x_min = int(min(all_x) * w)
+        face_x_max = int(max(all_x) * w)
+        face_y_min = int(min(all_y) * h)
+        face_y_max = int(max(all_y) * h)
+
+        face_w = face_x_max - face_x_min
+        face_h = face_y_max - face_y_min
+
+        if face_w <= 0 or face_h <= 0:
+            return None, None
+
+        if self.use_multi_roi:
+            # ITERATION 3 (FIXED): Multi-ROI with SAME percentages as Haar Cascade
+            rois = []
+
+            # Forehead: Upper 30% of face, starting 10% from top (matches Haar)
+            forehead_y1 = face_y_min + int(0.1 * face_h)
+            forehead_y2 = face_y_min + int(0.4 * face_h)
+            forehead_roi = frame[forehead_y1:forehead_y2, face_x_min:face_x_max]
+            if forehead_roi.size > 0:
+                rois.append(forehead_roi)
+
+            # Left cheek: 40-70% vertical, 0-40% horizontal (matches Haar)
+            left_y1 = face_y_min + int(0.4 * face_h)
+            left_y2 = face_y_min + int(0.7 * face_h)
+            left_x1 = face_x_min
+            left_x2 = face_x_min + int(0.4 * face_w)
+            left_cheek_roi = frame[left_y1:left_y2, left_x1:left_x2]
+            if left_cheek_roi.size > 0:
+                rois.append(left_cheek_roi)
+
+            # Right cheek: 40-70% vertical, 60-100% horizontal (matches Haar)
+            right_y1 = face_y_min + int(0.4 * face_h)
+            right_y2 = face_y_min + int(0.7 * face_h)
+            right_x1 = face_x_min + int(0.6 * face_w)
+            right_x2 = face_x_max
+            right_cheek_roi = frame[right_y1:right_y2, right_x1:right_x2]
+            if right_cheek_roi.size > 0:
+                rois.append(right_cheek_roi)
+
+            face_rect = (face_x_min, face_y_min, face_w, face_h)
+            return rois, face_rect
+        else:
+            # Single forehead ROI: Upper 40% of face (matches Haar baseline)
+            forehead_y1 = face_y_min
+            forehead_y2 = face_y_min + int(0.4 * face_h)
+            forehead_roi = frame[forehead_y1:forehead_y2, face_x_min:face_x_max]
+
+            if forehead_roi.size > 0:
+                face_rect = (face_x_min, face_y_min, face_w, face_h)
+                return [forehead_roi], face_rect
+
+        return None, None
+
+    def extract_rgb_signal(self, rois):
+        """Extract mean RGB values from ROI(s)
+
+        ITERATION 2 Enhancement: Support multiple ROIs
+        ITERATION 4 Enhancement: Illumination normalization
+        - Input: List of ROIs (even if just one)
+        - Output: Average RGB across all valid ROIs (normalized if enabled)
+        """
+        if rois is None or len(rois) == 0:
             return None
-        
-        # Convert BGR to RGB
-        roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
-        
-        # Calculate mean RGB values
-        mean_rgb = np.mean(roi_rgb.reshape(-1, 3), axis=0)
-        return mean_rgb
+
+        rgb_values = []
+        for roi in rois:
+            if roi is not None and roi.size > 0:
+                # Convert BGR to RGB
+                roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+
+                # ITERATION 4: Illumination normalization (chrominance)
+                if self.use_illumination_norm:
+                    roi_rgb = self._normalize_illumination(roi_rgb)
+
+                # Calculate mean RGB for this ROI
+                mean_rgb = np.mean(roi_rgb.reshape(-1, 3), axis=0)
+                rgb_values.append(mean_rgb)
+
+        if len(rgb_values) == 0:
+            return None
+
+        # ITERATION 2: Average across all ROIs for robustness
+        averaged_rgb = np.mean(rgb_values, axis=0)
+        return averaged_rgb
+
+    def _normalize_illumination(self, roi_rgb):
+        """ITERATION 4: Chrominance-based illumination normalization
+
+        Reduces effect of ambient lighting changes by normalizing to chrominance space
+        """
+        roi_float = roi_rgb.astype(np.float32)
+        # Add small epsilon to avoid division by zero
+        rgb_sum = roi_float[:, :, 0] + roi_float[:, :, 1] + roi_float[:, :, 2] + 1e-6
+
+        # Normalized rgb (chrominance)
+        r_norm = roi_float[:, :, 0] / rgb_sum
+        g_norm = roi_float[:, :, 1] / rgb_sum
+        b_norm = roi_float[:, :, 2] / rgb_sum
+
+        # Scale back to 0-255 range for consistency
+        normalized = np.stack([r_norm, g_norm, b_norm], axis=2) * 255
+        return normalized.astype(np.uint8)
     
     def pos_algorithm(self, rgb_signals):
         """
@@ -110,21 +291,74 @@ class RPPGProcessor:
         
         return 0.0
     
+    def _detect_motion(self, current_frame):
+        """ITERATION 4: Detect motion using simple frame differencing
+
+        Returns True if significant motion detected (should skip this frame)
+        """
+        if self.previous_frame is None:
+            self.previous_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+            return False
+
+        # Convert to grayscale
+        gray_current = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+
+        # Calculate frame difference
+        diff = np.abs(gray_current.astype(np.float32) - self.previous_frame.astype(np.float32))
+        mean_diff = np.mean(diff)
+
+        # Update previous frame
+        self.previous_frame = gray_current
+
+        # Threshold: if mean difference > 15, consider it significant motion
+        # This is conservative - allows normal micro-movements but rejects head turns
+        return mean_diff > 15
+
+    def _apply_temporal_filter(self, hr):
+        """ITERATION 4: Apply temporal smoothing to HR estimates
+
+        Uses simple moving average with recent HR history
+        """
+        if hr <= 0:
+            return hr
+
+        self.hr_history.append(hr)
+
+        if len(self.hr_history) < 3:
+            return hr  # Not enough history yet
+
+        # Simple moving average over last few estimates
+        smoothed_hr = np.mean(list(self.hr_history))
+        return smoothed_hr
+
     def process_frame(self, frame):
-        """Process single frame and update buffers"""
+        """Process single frame and update buffers
+
+        ITERATION 4 Enhancement: Motion detection and temporal filtering
+        """
+        # ITERATION 4: Check for motion artifacts
+        if self.use_motion_detection and self._detect_motion(frame):
+            # Skip this frame due to excessive motion
+            return 0.0, None, np.array([])
+
         roi, face_rect = self.extract_face_roi(frame)
-        
+
         if roi is not None:
             rgb_signal = self.extract_rgb_signal(roi)
             if rgb_signal is not None:
                 self.rgb_buffer.append(rgb_signal)
                 self.timestamps.append(time.time())
-                
+
                 # Calculate heart rate if we have enough data
                 if len(self.rgb_buffer) >= 60:  # 2 seconds of data
                     hr, filtered_signal = self.pos_algorithm(list(self.rgb_buffer))
+
+                    # ITERATION 4: Apply temporal filtering
+                    if self.use_temporal_filter:
+                        hr = self._apply_temporal_filter(hr)
+
                     return hr, face_rect, filtered_signal
-        
+
         return 0.0, face_rect, np.array([])
 
 class RPPGApp:

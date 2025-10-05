@@ -271,7 +271,7 @@ def generate_incremental_report(all_evaluations):
     if baseline_metrics:
         report.append("IMPROVEMENT OVER BASELINE:")
         report.append("-" * 80)
-        report.append(f"{'Method':<25} {'MAE Δ':<12} {'RMSE Δ':<12} {'r Δ':<12} {'<10BPM Δ':<12}")
+        report.append(f"{'Method':<25} {'MAE Delta':<12} {'RMSE Delta':<12} {'r Delta':<12} {'<10BPM Delta':<12}")
         report.append("-" * 80)
 
         best_method = None
@@ -465,8 +465,8 @@ def main():
 
     print("\n" + report)
 
-    # Save results
-    with open('results.txt', 'w') as f:
+    # Save results with UTF-8 encoding
+    with open('results.txt', 'w', encoding='utf-8') as f:
         f.write(report)
 
     timestamp = int(time.time())

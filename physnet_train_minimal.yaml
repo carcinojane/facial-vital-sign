@@ -1,0 +1,100 @@
+BASE: ['']
+TOOLBOX_MODE: "train_and_test"
+DEVICE: cpu
+NUM_OF_GPU_TRAIN: 1
+
+TRAIN:
+  BATCH_SIZE: 1  # Reduced from 4 to save memory
+  EPOCHS: 10  # Short training for testing
+  LR: 0.0001
+  OPTIMIZER:
+    MOMENTUM: 0.9
+    BETAS: (0.9, 0.999)
+    EPS: 0.0001
+  PLOT_LOSSES_AND_LR: True
+  MODEL_FILE_NAME: physnet_minimal
+  DATA:
+    FS: 30
+    DATASET: PURE
+    DO_PREPROCESS: True
+    DATA_FORMAT: NCDHW
+    DATA_PATH: "C:/Users/janej/OneDrive - National University of Singapore/Capstone Project/rppg-vscode-starter/data/PURE"
+    CACHED_PATH: "C:/Users/janej/OneDrive - National University of Singapore/Capstone Project/rppg-vscode-starter/data/PreprocessedData"
+    BEGIN: 0.0
+    END: 0.3  # Use only 30% of data to save memory
+    PREPROCESS:
+      DATA_TYPE: ['DiffNormalized']
+      LABEL_TYPE: DiffNormalized
+      DO_CHUNK: True
+      CHUNK_LENGTH: 128
+      CROP_FACE:
+        DO_CROP_FACE: True
+        BACKEND: 'HC'
+        USE_LARGE_FACE_BOX: True
+        LARGE_BOX_COEF: 1.5
+        DETECTION:
+          DO_DYNAMIC_DETECTION: False
+          DYNAMIC_DETECTION_FREQUENCY: 32
+          USE_MEDIAN_FACE_BOX: False
+      RESIZE:
+        H: 72
+        W: 72
+
+VALID:
+  DATA:
+    FS: 30
+    DATASET: PURE
+    DO_PREPROCESS: True
+    DATA_FORMAT: NCDHW
+    DATA_PATH: "C:/Users/janej/OneDrive - National University of Singapore/Capstone Project/rppg-vscode-starter/data/PURE"
+    CACHED_PATH: "C:/Users/janej/OneDrive - National University of Singapore/Capstone Project/rppg-vscode-starter/data/PreprocessedData"
+    BEGIN: 0.7
+    END: 0.85
+    PREPROCESS:
+      DATA_TYPE: ['DiffNormalized']
+      LABEL_TYPE: DiffNormalized
+      DO_CHUNK: True
+      CHUNK_LENGTH: 128
+      CROP_FACE:
+        DO_CROP_FACE: True
+        BACKEND: 'HC'
+        USE_LARGE_FACE_BOX: True
+        LARGE_BOX_COEF: 1.5
+      RESIZE:
+        H: 72
+        W: 72
+
+TEST:
+  METRICS: ['MAE', 'RMSE', 'MAPE', 'Pearson']
+  USE_LAST_EPOCH: True
+  DATA:
+    FS: 30
+    DATASET: PURE
+    DO_PREPROCESS: True
+    DATA_FORMAT: NCDHW
+    DATA_PATH: "C:/Users/janej/OneDrive - National University of Singapore/Capstone Project/rppg-vscode-starter/data/PURE"
+    CACHED_PATH: "C:/Users/janej/OneDrive - National University of Singapore/Capstone Project/rppg-vscode-starter/data/PreprocessedData"
+    BEGIN: 0.85
+    END: 1.0
+    PREPROCESS:
+      DATA_TYPE: ['DiffNormalized']
+      LABEL_TYPE: DiffNormalized
+      DO_CHUNK: True
+      CHUNK_LENGTH: 128
+      CROP_FACE:
+        DO_CROP_FACE: True
+        BACKEND: 'HC'
+        USE_LARGE_FACE_BOX: True
+        LARGE_BOX_COEF: 1.5
+      RESIZE:
+        H: 72
+        W: 72
+
+MODEL:
+  NAME: Physnet
+  DROP_RATE: 0.2
+  PHYSNET:
+    FRAME_NUM: 128
+
+LOG:
+  PATH: runs/exp
